@@ -4,17 +4,9 @@ import (
     "github.com/syndtr/goleveldb/leveldb"
 )
 
-type DBi interface {
-}
-
-type DB struct {
+type wrapperLevelDB struct {
     db    *leveldb.DB
     cache Cache
-}
-
-type Option struct {
-    MaxCacheItem   uint64
-    MaxCacheMemory uint64
 }
 
 func defaultOption() *Option {
@@ -23,7 +15,7 @@ func defaultOption() *Option {
         MaxCacheMemory: 64 * 1024 * 1024, // 64MB
     }
 }
-func OpenDB(dbDir string, opt *Option) (*DB, error) {
+func OpenDB(dbDir string, opt *Option) (DB, error) {
     if opt == nil {
         opt = defaultOption()
     }
@@ -31,18 +23,21 @@ func OpenDB(dbDir string, opt *Option) (*DB, error) {
     if err != nil {
         return nil, err
     }
-    d := &DB{
+    d := &wrapperLevelDB{
         db:    db,
         cache: NewCache(opt.MaxCacheItem, opt.MaxCacheMemory),
     }
     return d, nil
 }
 
-func (d *DB) Put(key, value []byte) error {
-    d.cache.Add(key, value)
-    return d.db.Put(key, value, nil)
+func (d *wrapperLevelDB) Put(key, value []byte) error {
+    err := d.db.Put(key, value, nil)
+    if err == nil {
+        d.cache.Remove(key)
+    }
+    return err
 }
-func (d *DB) Get(key []byte) ([]byte, error) {
+func (d *wrapperLevelDB) Get(key []byte) ([]byte, error) {
     val, ok := d.cache.Get(key)
     if ok {
         return val, nil
@@ -55,6 +50,6 @@ func (d *DB) Get(key []byte) ([]byte, error) {
     return val, nil
 }
 
-func (d *DB) Close() error {
+func (d *wrapperLevelDB) Close() error {
     return d.db.Close()
 }

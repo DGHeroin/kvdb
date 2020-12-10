@@ -13,7 +13,7 @@ const (
 type Cache interface {
     Add(key []byte, value []byte)
     Get(key []byte) (value []byte, ok bool)
-    Remove(key string)
+    Remove(key []byte)
     RemoveOldest()
     Len() uint64
     Clear()
@@ -111,13 +111,14 @@ func (c *lru) Get(key []byte) (value []byte, ok bool) {
     return
 }
 
-func (c *lru) Remove(key string) {
+func (c *lru) Remove(key []byte) {
     c.mu.Lock()
     defer c.mu.Unlock()
+    keyStr := string(key)
     if c.cache == nil {
         return
     }
-    if ele, hit := c.cache[key]; hit {
+    if ele, hit := c.cache[keyStr]; hit {
         c.removeElement(ele, RemoveTypeByUser)
     }
 }
